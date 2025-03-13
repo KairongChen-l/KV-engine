@@ -71,6 +71,7 @@ public:
     void insertElement(K,V);
     void displayList();
     bool searchElement(K);
+    void deleteElement(K);
 
 private:
     //跳表的最大层数
@@ -108,9 +109,40 @@ bool SkipList<K, V>::searchElement(K key) {
     return false;
 }
 
+template<typename K, typename V>
+void SkipList<K, V>::deleteElement(K key) {
+    mtx.lock();
+    Node<K, V> *current = this->header;
+    Node<K, V> *update[MAX_LEVEL+1];
+    memset(update,0,sizeof(Node<K, V>*)*(MAX_LEVEL+1));
+
+    //因为要删除，所以我们还是要用到前驱节点，所以需要记录前驱
+    for(int i = skipListLevel;i>=0;i--) {
+        while(current->forward[i] != NULL && current->forward[i]->getKey() < key) {
+            current = current->forward[i];
+        }
+        //每一层都要记录前驱节点
+        update[i] = current->forward[i];
+    }
+    current = current->forward[0];
+    if(current != NULL && current->getKey() == key) {
+        //从最底层到最顶层删除索引数据
+        for(int i = 0;i<skipListLevel;i++) {
+            if(update[i]->forward[i] != current)
+                break;
+            update[i]->forward[i] = current->forward[i];
+        }
+        while(skipListLevel > 0 && header->forward[skipListLevel] == 0)
+            skipListLevel--;
+        std::cout <<"Successfully deleted key:"<<key<<std::endl;
+    }
+    mtx.unlock();
+}
+
 
 template<typename K, typename V>
 void SkipList<K, V>::insertElement(const K key,const V value) {
+    mtx.lock();
     Node<K, V> *current = this->header;
 
     Node<K,V> *update[MAX_LEVEL+1];
@@ -143,6 +175,7 @@ void SkipList<K, V>::insertElement(const K key,const V value) {
         }
         std::cout<<"Successfully inserted key:"<<key<<", value:"<<value<<std::endl;
     }
+    mtx.unlock();
 }
 
 template<typename K, typename V>
@@ -159,8 +192,6 @@ void SkipList<K, V>::displayList() {
         std::cout<<std::endl;
     }
 }
-
-
 template<typename K, typename V>
 SkipList<K, V>::SkipList(int MAX_LEVEL) {
     this->MAX_LEVEL=MAX_LEVEL;
@@ -173,7 +204,7 @@ SkipList<K, V>::SkipList(int MAX_LEVEL) {
 }
 template<typename K, typename V>
 SkipList<K, V>::~SkipList() {
-    //delete header;
+    delete header;
 }
 template<typename K, typename V>
 int SkipList<K, V>::randomLevel() {
