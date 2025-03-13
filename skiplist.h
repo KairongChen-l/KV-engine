@@ -8,6 +8,9 @@
 #include <cstdlib>
 #include <iostream>
 #include <cstring>
+#include <mutex>
+
+std::mutex mtx;  //关键区全局锁
 
 template<typename K,typename V>
 class Node {
@@ -33,7 +36,6 @@ private:
 //类内声明，类外实现
 template<typename K,typename V>
 Node<K,V>::Node(const K k,const V v,int level) {
-    std::cout<<"test22222"<<std::endl;
     this->key=k;
     this->value=v;
     this->nodeLevel=level;
@@ -65,23 +67,106 @@ public:
     SkipList(int);
     ~SkipList();
     int randomLevel();
+    Node<K, V>* createNode(K,V,int);
+    void insertElement(K,V);
+    void displayList();
+    bool searchElement(K);
 
 private:
     //跳表的最大层数
     int MAX_LEVEL;
     //目前跳表的层数
-    int currentLevel;
+    int skipListLevel;
 
     Node<K, V> *header;
 };
 
 template<typename K, typename V>
+//返回一个Node*
+Node<K, V>* SkipList<K, V>::createNode(const K k,const V v, int level) {
+    Node<K, V> *node = new Node<K, V>(k,v,level);
+    return node;
+}
+
+template<typename K, typename V>
+bool SkipList<K, V>::searchElement(K key) {
+    Node<K, V> *current = header;
+    //从最顶层开始搜索
+    for(int i = skipListLevel;i>=0;i--) {
+        //往每一层的前向指针前进
+        while(current->forward[i]!=NULL && current->forward[i]->getKey() < key) {
+            current = current->forward[i];
+        }
+    }
+    current = current->forward[0];
+
+    if(current != NULL && current->getKey() == key) {
+        std::cout << "Found key:"<<key<<", value:"<<current->getValue()<<std::endl;
+        return true;
+    }
+    std::cout << "Not found key:"<<key<<std::endl;
+    return false;
+}
+
+
+template<typename K, typename V>
+void SkipList<K, V>::insertElement(const K key,const V value) {
+    Node<K, V> *current = this->header;
+
+    Node<K,V> *update[MAX_LEVEL+1];
+    memset(update,0,sizeof(Node<K,V>*)*(MAX_LEVEL+1));
+
+    //从最高层的跳表开始,逐层向下找插入位置，每一层沿着前向指针移动，直到找到第一个键大于待插入键的位置，然后记录在update中
+    for(int i = skipListLevel; i >= 0; i--) {
+        while(current->forward[i] != NULL && current->forward[i]->getKey() < key) {
+            current = current->forward[i];
+        }
+        update[i] = current;
+    }
+    //到达0层，forward指向右节点
+    current = current->forward[0];
+
+    if(current == NULL || current->getKey() != key) {
+        int rLevel = randomLevel();
+        if(rLevel >= skipListLevel) {
+            for(int i = skipListLevel+1; i <= rLevel; i++) {
+                update[i] = header;
+            }
+            skipListLevel = rLevel;
+        }
+
+        Node<K, V> *insertNode = createNode(key, value, rLevel);
+
+        for(int i = 0; i<= rLevel;i++) {
+            insertNode->forward[i] = update[i]->forward[i];
+            update[i]->forward[i] = insertNode;
+        }
+        std::cout<<"Successfully inserted key:"<<key<<", value:"<<value<<std::endl;
+    }
+}
+
+template<typename K, typename V>
+void SkipList<K, V>::displayList() {
+    std::cout<<"\n*****Skip List*****"<<std::endl;
+    //打印每一层的节点
+    for(int i = 0; i <= skipListLevel; i++) {
+        Node<K, V> *current = this->header->forward[i];
+        std::cout<<"Level"<<i<<":";
+        while(current != NULL) {
+            std::cout<<current->getKey()<<"->"<<current->getValue()<<";";
+            current = current->forward[i];
+        }
+        std::cout<<std::endl;
+    }
+}
+
+
+template<typename K, typename V>
 SkipList<K, V>::SkipList(int MAX_LEVEL) {
     this->MAX_LEVEL=MAX_LEVEL;
-    this->currentLevel=0;
+    this->skipListLevel=0;
 
     //创建头结点，初始化key和value
-    std::cout<<"test3333"<<std::endl;
     K k;
     V v;
     this->header=new Node<K,V>(k,v,MAX_LEVEL);
@@ -99,6 +184,7 @@ int SkipList<K, V>::randomLevel() {
     k = (k<=MAX_LEVEL ? k : MAX_LEVEL);
     return k;
 }
+
 
 
 #endif //SKIP_H
