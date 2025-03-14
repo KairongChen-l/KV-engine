@@ -3,5 +3,7 @@ project(KVcache)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(KVcache main.cpp
-        skiplist.h)
+add_executable(KVcache
+        main.cpp
+        skiplist.h
+)
