@@ -11,9 +11,9 @@ int main() {
     skipList.insertElement(12, "xiu");
     skipList.insertElement(19, "yang");
 
+    skipList.dumFile();
+    std::string path = ".\\store\\dumpFile";
+    skipList.loadFile(path);
     skipList.displayList();
-    skipList.searchElement(9);
-    skipList.searchElement(18);
-
     return 0;
 }
