@@ -98,6 +98,8 @@ public:
     void dump_file();
     void load_file();
     void clear(Node<K,V>*);
+    bool update_ttl(K key,int new_ttl);
+    int get_remaining_ttl(K key);
     int size();
 
 private:
@@ -141,7 +143,45 @@ void SkipList<K, V>::expired_cleanup() {
         }
     }
 }
+//更新TTL
+template<typename K, typename V>
+bool SkipList<K, V>::update_ttl(K key, int new_ttl) {
+    std::unique_lock<std::shared_mutex> lock(mtx);
+    Node<K,V> *current = _header;
 
+    for(int i=_skip_list_level;i>=0;i--) {
+        while (current->forward[i] && current->forward[i]->key < key) {
+            current = current->forward[i];
+        }
+    }
+    current = current->forward[0];
+    if(current && current->key == key) {
+        current->expire_time = std::chrono::steady_clock::now()+std::chrono::seconds(new_ttl);
+        return true;
+    }
+    return false;
+}
+
+//获取Key剩余TTL
+template<typename K, typename V>
+int SkipList<K, V>::get_remaining_ttl(K key) {
+    std::shared_lock<std::shared_mutex> lock(mtx);
+    Node<K, V> *current = _header;
+    for(int i=_skip_list_level;i>=0;i--) {
+        while (current->forward[i] && current->forward[i]->key < key) {
+            current = current->forward[i];
+        }
+    }
+    current = current->forward[0];
+    if(current && current->key == key) {
+        if(current->is_expired()) {
+            delete_element(key);
+            return -1;
+        }
+        return std::chrono::duration_cast<std::chrono::seconds>(current->expire_time-std::chrono::steady_clock::now()).count();
+    }
+    return -1;
+}
 
 // create new node
 template<typename K, typename V>
@@ -358,7 +398,7 @@ bool SkipList<K, V>::search_element(K key) {
 
     //查询时检查是否过期了，过期了就删除这个键
     if (current and current->get_key() == key) {
-        if(current->is_empty()) {
+        if(current->is_expired()) {
             lock.unlock();//先释放共享锁,否则无法删除
             delete_element(key);
             std::cout << "Key has expired:" << key << std::endl;
