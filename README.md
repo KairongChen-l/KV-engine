@@ -29,4 +29,4 @@
 # 🍓学习知识
 读写锁在C++11中为shared_lock,写锁和读锁锁定方式不一样，
 要注意的是在进行写之前要先释放读锁。
-![读写锁](.\\graph\\read_write_lock.png)
+![读写锁](./graph/read_write_lock.png)
